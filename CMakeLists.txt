@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   std_msgs
-  tf
+  cv_bridge
 )
 
 ## System dependencies are found with CMake's conventions
@@ -105,8 +105,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES ardrone_autopilot
-#  CATKIN_DEPENDS ardrone_autonomy geometry_msgs roscpp rospy sensor_msgs std_msgs tf
+# LIBRARIES
+ CATKIN_DEPENDS ardrone_autonomy geometry_msgs roscpp rospy sensor_msgs std_msgs cv_bridge
 #  DEPENDS system_lib
 )
 
