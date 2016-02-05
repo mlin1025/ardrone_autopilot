@@ -41,7 +41,11 @@ class Messages(object):
 
     def message_put(self, message, name=None):
         """Add one new message to UI"""
-        self.messages_put([message, name])
+        self.messages_put([(message, name), ])
+
+    def messages_flush(self):
+        with self.lock:
+            messages = {}
 
     def render(self, image):
         """Prints all messages onto given image"""
@@ -88,42 +92,32 @@ class Messages(object):
             while (self.messages_queue and
                    rospy.get_time() - self.messages_queue[0][1] >
                    self.message_display_time / 1000):
-                print(rospy.get_time() - self.messages_queue[0][1])
                 self.messages_queue.popleft()
 
 
 class UInode(QtGui.QMainWindow):
+    status = {
+        0: 'Emergency',
+        1: 'Initialized',
+        2: 'Landed',
+        3: 'Flying',
+        4: 'Hovering',
+        5: 'Test (?)',
+        6: 'Taking Off',
+        7: 'Going to Hover Mode',
+        8: 'Landing',
+        9: 'Looping (?)',
+    }
+
     def __init__(self,
-                 receive_user_input=True,
+                 controller=None,
                  message_display_time=5000,
-                 coneection_check_period=250,
+                 coneection_check_period=500,
+                 grid=grid,
                  fps=50):
         super(UInode, self).__init__()
 
-        self.receive_user_input = receive_user_input
-
-        self.messages = Messages(
-            message_display_time,
-            'drone.state',
-            'drone.battery',
-            ['od.pos.x',
-             'od.pos.y',
-             'od.pos.z'],
-            ['od.ori.x',
-             'od.ori.y',
-             'od.ori.z',
-             'od.ori.w'],
-            None,
-            ['imu.ori.x',
-             'imu.ori.y',
-             'imu.ori.z'],
-            ['imu.vel.x',
-             'imu.vel.y',
-             'imu.vel.z'],
-            ['imu.acc.x',
-             'imu.acc.y',
-             'imu.acc.z'],
-        )
+        self.messages = Messages(message_display_time, *grid)
         self.messages_named_template = re.compile(
             r'((?P<name>[a-zA-Z0-9_-]+)::)?(?P<message>.*)')
 
@@ -136,6 +130,7 @@ class UInode(QtGui.QMainWindow):
 
         self.communication_since_timer = False
         self.connected = False
+        self.messages.message_put('Offline', 'drone.state')
 
         self.connection_check_timer = QtCore.QTimer(self)
         self.connection_check_timer.timeout.connect(self.on_connection_check)
@@ -147,9 +142,9 @@ class UInode(QtGui.QMainWindow):
 
         rospy.Subscriber('/ardrone/navdata', Navdata, self.on_navdata)
         rospy.Subscriber('/ui/message', String, self.on_ui_request)
+        rospy.Subscriber('camera/image', Image, self.on_video_update)
         rospy.Subscriber('odom', Odometry, self.on_odometry)
         rospy.Subscriber('imu', Imu, self.on_imu)
-        rospy.Subscriber('image', Image, self.on_video_update)
 
     def on_ui_request(self, message):
         """We have spetial `ui/message` topic where any node can send
@@ -199,7 +194,12 @@ class UInode(QtGui.QMainWindow):
         ])
 
     def on_navdata(self, data):
-        pass
+        self.communication_since_timer = True
+
+        self.messages.messages_put([
+            (self.messages.get(navdata.state, 'unknown'), 'drone.state'),
+            (data.batteryPercent, 'drone.battery'),
+        ])
 
     def on_video_update(self, data):
         """On each frame we save new picture for future rendering"""
@@ -217,10 +217,13 @@ class UInode(QtGui.QMainWindow):
 
     def on_connection_check(self):
         """An obvious way to check if the drone is online"""
-        self.connected = self.communication_since_timer
-        if not self.connected:
-            self.drone_status = None
+        if self.communication_since_timer and not self.connected:
+            self.messages.message_put('Online', 'drone.state')
+        elif not self.communication_since_timer:
             self.image = None
+            self.messages.messages_flush()
+            self.messages.message_put('Offline', 'drone.state')
+        self.connected = self.communication_since_timer
         self.communication_since_timer = False
 
     def on_redraw(self):
