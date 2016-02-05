@@ -15,11 +15,82 @@ from PySide import QtCore, QtGui
 
 import rospy
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Empty
 from sensor_msgs.msg import Image, Imu
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from ardrone_autonomy.msg import Navdata
+from geometry_msgs.msg import Twist
+
+
+# Message groups
+grid = [
+    'drone.state',
+    None,
+    'drone.battery',
+    None,
+    ['od.pos.x',
+     'od.pos.y',
+     'od.pos.z'],
+    ['od.ori.x',
+     'od.ori.y',
+     'od.ori.z',
+     'od.ori.w'],
+    None,
+    ['imu.ori.x',
+     'imu.ori.y',
+     'imu.ori.z'],
+    ['imu.vel.x',
+     'imu.vel.y',
+     'imu.vel.z'],
+    ['imu.acc.x',
+     'imu.acc.y',
+     'imu.acc.z']
+]
+
+
+class DroneController(object):
+    def __init__(self, command_rate=20):
+        self.status = -1
+
+        rospy.Subscriber('/ardrone/navdata', Navdata, self.on_navdata)
+
+        self.land_topic = rospy.Publisher('/ardrone/land', Empty, queue_size=5)
+        self.takeoff_topic = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=5)
+        self.reset_topic = rospy.Publisher('/ardrone/reset', Empty, queue_size=5)
+
+        self.cmd = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
+
+        self.command = Twist()
+
+        rospy.on_shutdown(self.land)
+
+    def on_navdata(self, navdata):
+        self.status = navdata.state
+
+    def takeoff(self):
+        if(self.status == DroneStatus.Landed):
+            self.takeoff_topic.publish(Empty())
+
+    def land(self):
+        self.land_topic.publish(Empty())
+
+    def reset(self):
+        self.reset_topic.publish(Empty())
+
+    def set_commant(self, roll=None, pitch=None, yaw=None, z_vel=None):
+        if pitch is not None:
+            self.command.linear.x = pitch
+        if roll is not None:
+            self.command.linear.y = roll
+        if z_vel is not None:
+            self.command.linear.z = z_vel
+        if yaw is not None:
+            self.command.angular.z = yaw
+
+    def send_command(self):
+        if self.status in [3, 4, 7]:
+            self.cmd.publish(self.command)
 
 
 class Messages(object):
@@ -116,6 +187,13 @@ class UInode(QtGui.QMainWindow):
                  grid=grid,
                  fps=50):
         super(UInode, self).__init__()
+
+        self.controller = controller
+
+        self.pitch = 0
+        self.roll = 0
+        self.yaw = 0
+        self.z_vel = 0
 
         self.messages = Messages(message_display_time, *grid)
         self.messages_named_template = re.compile(
@@ -240,19 +318,70 @@ class UInode(QtGui.QMainWindow):
         self.resize(image.width(), image.height())
         self.image_box.setPixmap(image)
 
-    # def process_user_input(self, key):
-    #     if self.receive_user_input:
-    #         if key == ord('l'):
-    #             print('LAUNCH')
-    #             self.takeoff.publish(Empty())
-    #         elif key == ord('r'):
-    #             print('RESET')
-    #             self.reset.publish(Empty())
-    #         elif key == ord('d'):
-    #             print('DROP')
-    #             self.land.publish(Empty())
-    #     else:
-    #         print('User input is disabled')
+    def keyPressEvent(self, event):
+        key = event.key()
+
+        if event.isAutoRepeat() or self.controller is None:
+            return
+
+        if key == QtCore.Qt.Key.Key_H:
+            controller.reset()
+        elif key == QtCore.Qt.Key.Key_R:
+            controller.takeoff()
+        elif key == QtCore.Qt.Key.Key_H:
+            controller.land()
+        else:
+            if key == QtCore.Qt.Key.Key_A:
+                self.yaw = 1
+            elif key == QtCore.Qt.Key.Key_D:
+                self.yaw = -1
+
+            elif key == QtCore.Qt.Key.Key_W:
+                self.pitch = 1
+            elif key == QtCore.Qt.Key.Key_S:
+                self.pitch = -1
+
+            elif key == QtCore.Qt.Key.Key_Q:
+                self.roll = 1
+            elif key == QtCore.Qt.Key.Key_E:
+                self.roll = -1
+
+            elif key == QtCore.Qt.Key.Key_BracketRight:
+                self.z_vel = 1
+            elif key == QtCore.Qt.Key.Key_BracketLeft:
+                self.z_vel = -1
+
+        self.controller.set_commant(self.roll, self.pitch, self.yaw, self.z_vel)
+        self.controller.send_command()
+
+    def keyReleaseEvent(self, event):
+        key = event.key()
+
+        if event.isAutoRepeat() or self.controller is None:
+            return
+
+        if key == QtCore.Qt.Key.Key_A:
+            self.yaw = 0
+        elif key == QtCore.Qt.Key.Key_D:
+            self.yaw = 0
+
+        elif key == QtCore.Qt.Key.Key_W:
+            self.pitch = 0
+        elif key == QtCore.Qt.Key.Key_S:
+            self.pitch = 0
+
+        elif key == QtCore.Qt.Key.Key_Q:
+            self.roll = 0
+        elif key == QtCore.Qt.Key.Key_E:
+            self.roll = 0
+
+        elif key == QtCore.Qt.Key.Key_BracketRight:
+            self.z_vel = 0
+        elif key == QtCore.Qt.Key.Key_BracketLeft:
+            self.z_vel = 0
+
+        self.controller.set_commant(self.roll, self.pitch, self.yaw, self.z_vel)
+        self.controller.send_command()
 
 
 if __name__ == '__main__':
@@ -262,7 +391,7 @@ if __name__ == '__main__':
 
     app = QtGui.QApplication(sys.argv)
 
-    ui = UInode()
+    ui = UInode(DroneController())
     ui.show()
 
     status = app.exec_()
