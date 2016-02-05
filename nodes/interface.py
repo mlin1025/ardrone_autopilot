@@ -6,6 +6,57 @@
 # which is distributed under the MIT license.
 # See `LICENSE` file for details.
 #
+"""
+This node provides QT user interface and keyboard input.
+
+
+Inputs
+------
+
+* /ardrone/navdata -- information about drone state.
+* /ardrone/odometry -- information about drone state.
+* /ardrone/imu -- information about drone state.
+
+* /ui/message -- messages stream.
+
+  All messages published to this stream will be displayed for user.
+
+  Those messages formed like `name::messsage` will update information
+  on the left side of screen (you should add all names to the `grid` list
+  in order to get those messages displayed).
+
+  Messages which doesn't match the above pattern will be shown on the right
+  side of screen. They will be displayed for `message_display_time` time
+  (which is 5sec. by default) and then removed from screen.
+
+* /ui/image -- main picture stream.
+
+
+Outputs
+-------
+
+We use `DroneController` class to emit user control information.
+
+* /ardrone/land -- single `land` command
+* /ardrone/takeoff -- single `takeoff` command
+* /ardrone/reset -- single `reset` command
+* /cmd_vel -- velocity control commands (send on each keypress)
+
+
+Parameters
+----------
+
+* ~message_display_time = 5000 [uint] -- time after which
+  anonymous messages will be hidden away from screan (in milliseconds).
+* ~coneection_check_period = 500 [uint] -- consider dorne is offline if we had
+  no messages for more than this time (in milliseconds).
+* ~fps = 50 [uint] -- interface update rate.
+* ~swap_red_blue = False [bool] -- set this to `True` if you need to swap
+  red and blue channels (if you have to enable this, check that other nodes
+  work fine with this stream; it's better to swap image color before
+  passing it to the system, not after).
+
+"""
 
 import re
 from collections import deque, OrderedDict
@@ -55,9 +106,12 @@ class DroneController(object):
 
         rospy.Subscriber('/ardrone/navdata', Navdata, self.on_navdata)
 
-        self.land_topic = rospy.Publisher('/ardrone/land', Empty, queue_size=5)
-        self.takeoff_topic = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=5)
-        self.reset_topic = rospy.Publisher('/ardrone/reset', Empty, queue_size=5)
+        self.land_topic = rospy.Publisher(
+            '/ardrone/land', Empty, queue_size=5)
+        self.takeoff_topic = rospy.Publisher(
+            '/ardrone/takeoff', Empty, queue_size=5)
+        self.reset_topic = rospy.Publisher(
+            '/ardrone/reset', Empty, queue_size=5)
 
         self.cmd = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
 
@@ -193,10 +247,13 @@ class UInode(QtGui.QMainWindow):
                  message_display_time=5000,
                  coneection_check_period=500,
                  grid=grid,
-                 fps=50):
+                 fps=50,
+                 swap_red_blue=False):
         super(UInode, self).__init__()
 
         self.controller = controller
+
+        self.swap_red_blue = swap_red_blue
 
         self.pitch = 0
         self.roll = 0
@@ -228,9 +285,9 @@ class UInode(QtGui.QMainWindow):
 
         rospy.Subscriber('/ardrone/navdata', Navdata, self.on_navdata)
         rospy.Subscriber('/ui/message', String, self.on_ui_request)
-        rospy.Subscriber('camera/image', Image, self.on_video_update)
-        rospy.Subscriber('odom', Odometry, self.on_odometry)
-        rospy.Subscriber('imu', Imu, self.on_imu)
+        rospy.Subscriber('/ardrone/odometry', Odometry, self.on_odometry)
+        rospy.Subscriber('/ardrone/imu', Imu, self.on_imu)
+        rospy.Subscriber('/ui/image', Image, self.on_video_update)
 
     def on_ui_request(self, message):
         """We have spetial `ui/message` topic where any node can send
@@ -295,8 +352,8 @@ class UInode(QtGui.QMainWindow):
                              data.width,
                              data.height,
                              QtGui.QImage.Format_RGB888)
-        # Try removing the next line if you have problems with colors
-        # image = QtGui.QImage.rgbSwapped(image)
+        if self.swap_red_blue:
+            image = QtGui.QImage.rgbSwapped(image)
 
         with self.image_lock:
             self.image = image
@@ -361,7 +418,8 @@ class UInode(QtGui.QMainWindow):
             elif key == QtCore.Qt.Key.Key_BracketLeft:
                 self.z_vel = -1
 
-        self.controller.set_commant(self.roll, self.pitch, self.yaw, self.z_vel)
+        self.controller.set_commant(
+            self.roll, self.pitch, self.yaw, self.z_vel)
         self.controller.send_command()
 
     def keyReleaseEvent(self, event):
@@ -390,7 +448,8 @@ class UInode(QtGui.QMainWindow):
         elif key == QtCore.Qt.Key.Key_BracketLeft:
             self.z_vel = 0
 
-        self.controller.set_commant(self.roll, self.pitch, self.yaw, self.z_vel)
+        self.controller.set_commant(
+            self.roll, self.pitch, self.yaw, self.z_vel)
         self.controller.send_command()
 
 
@@ -399,9 +458,22 @@ if __name__ == '__main__':
 
     rospy.init_node('ui_node')
 
+    swap_red_blue = rospy.get_param('~swap_red_blue', False)
+    message_display_time = rospy.get_param('~message_display_time', 5000)
+    coneection_check_period = rospy.get_param('~coneection_check_period', 500)
+    fps = rospy.get_param('~fps', 50)
+
+    rospy.loginfo('Starting user interface')
+
     app = QtGui.QApplication(sys.argv)
 
-    ui = UInode(DroneController())
+    ui = UInode(
+        DroneController(),
+        swap_red_blue=swap_red_blue,
+        message_display_time=message_display_time,
+        coneection_check_period=coneection_check_period,
+        fps=fps
+    )
     ui.show()
 
     status = app.exec_()
