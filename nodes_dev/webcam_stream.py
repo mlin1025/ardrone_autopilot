@@ -18,9 +18,7 @@ from sensor_msgs.msg import Image
 class WebCamNode(object):
     def __init__(self, camera_index=-1, rate=15):
         self.camera_index = camera_index
-        
         self.capture = cv2.VideoCapture(camera_index)
-        
         self.rate = rospy.Rate(rate)
         self.bridge = CvBridge()
         self.pub = rospy.Publisher('camera/image', Image, queue_size=1)

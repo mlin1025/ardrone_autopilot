@@ -69,7 +69,7 @@ class DroneController(object):
         self.status = navdata.state
 
     def takeoff(self):
-        if(self.status == DroneStatus.Landed):
+        if(self.status == 2):
             self.takeoff_topic.publish(Empty())
 
     def land(self):
@@ -77,6 +77,14 @@ class DroneController(object):
 
     def reset(self):
         self.reset_topic.publish(Empty())
+
+    def hover(self):
+        self.command.linear.x = 0
+        self.command.linear.y = 0
+        self.command.linear.z = 0
+        self.command.angular.x = 0
+        self.command.angular.y = 0
+        self.command.angular.z = 0
 
     def set_commant(self, roll=None, pitch=None, yaw=None, z_vel=None):
         if pitch is not None:
@@ -275,7 +283,7 @@ class UInode(QtGui.QMainWindow):
         self.communication_since_timer = True
 
         self.messages.messages_put([
-            (self.messages.get(navdata.state, 'unknown'), 'drone.state'),
+            (self.status.get(data.state, 'unknown'), 'drone.state'),
             (data.batteryPercent, 'drone.battery'),
         ])
 
@@ -288,7 +296,7 @@ class UInode(QtGui.QMainWindow):
                              data.height,
                              QtGui.QImage.Format_RGB888)
         # Try removing the next line if you have problems with colors
-        image = QtGui.QImage.rgbSwapped(image)
+        # image = QtGui.QImage.rgbSwapped(image)
 
         with self.image_lock:
             self.image = image
@@ -324,12 +332,14 @@ class UInode(QtGui.QMainWindow):
         if event.isAutoRepeat() or self.controller is None:
             return
 
-        if key == QtCore.Qt.Key.Key_H:
-            controller.reset()
-        elif key == QtCore.Qt.Key.Key_R:
-            controller.takeoff()
+        if key == QtCore.Qt.Key.Key_R:
+            self.controller.reset()
+        elif key == QtCore.Qt.Key.Key_L:
+            self.controller.takeoff()
+        elif key == QtCore.Qt.Key.Key_T:
+            self.controller.land()
         elif key == QtCore.Qt.Key.Key_H:
-            controller.land()
+            self.controller.hover()
         else:
             if key == QtCore.Qt.Key.Key_A:
                 self.yaw = 1
