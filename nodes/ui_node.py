@@ -26,7 +26,7 @@ class Messages(object):
     def __init__(self, message_display_time, *args):
         self.message_structure = args
         self.messages_named = {}
-        self.messages_queue = deque([('a', '')] * 50)
+        self.messages_queue = deque()
         self.message_display_time = message_display_time
         self.lock = Lock()
 
@@ -45,7 +45,7 @@ class Messages(object):
 
     def render(self, image):
         """Prints all messages onto given image"""
-        # self.clean_queue()
+        self.clean_queue()
 
         painter = QtGui.QPainter()
         painter.begin(image)
@@ -205,8 +205,15 @@ class UInode(QtGui.QMainWindow):
         """On each frame we save new picture for future rendering"""
         self.communication_since_timer = True
 
+        image = QtGui.QImage(data.data,
+                             data.width,
+                             data.height,
+                             QtGui.QImage.Format_RGB888)
+        # Try removing the next line if you have problems with colors
+        image = QtGui.QImage.rgbSwapped(image)
+
         with self.image_lock:
-            self.image = data
+            self.image = image
 
     def on_connection_check(self):
         """An obvious way to check if the drone is online"""
@@ -220,13 +227,7 @@ class UInode(QtGui.QMainWindow):
         image = None
         with self.image_lock:
             if self.image is not None:
-                image = QtGui.QImage(self.image.data,
-                                     self.image.width,
-                                     self.image.height,
-                                     QtGui.QImage.Format_RGB888)
-                # Try removing the next line if you have problems with colors
-                image = QtGui.QImage.rgbSwapped(image)
-                image = QtGui.QPixmap.fromImage(image)
+                image = QtGui.QPixmap.fromImage(self.image)
             else:
                 image = QtGui.QPixmap(640, 360)
                 image.fill(QtGui.QColor(50, 50, 50))
