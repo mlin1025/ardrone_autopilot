@@ -133,9 +133,9 @@ include_directories(
 
 ## Declare a C++ executable
 # add_executable(ardrone_autopilot_node nodes/ardrone_autopilot_node.cpp)
-add_executable(test_pic_stream nodes/test_pic_stream.cpp)
-target_link_libraries(test_pic_stream ${catkin_LIBRARIES})
-add_dependencies(test_pic_stream beginner_tutorials_generate_messages_cpp)
+# add_executable(test_pic_stream nodes/test_pic_stream.cpp)
+# target_link_libraries(test_pic_stream ${catkin_LIBRARIES})
+# add_dependencies(test_pic_stream beginner_tutorials_generate_messages_cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
