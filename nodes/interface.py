@@ -69,7 +69,6 @@ import rospy
 from std_msgs.msg import String, Empty
 from sensor_msgs.msg import Image, Imu
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Image
 from ardrone_autonomy.msg import Navdata
 from geometry_msgs.msg import Twist
 
@@ -337,6 +336,7 @@ class UInode(QtGui.QMainWindow):
         ])
 
     def on_navdata(self, data):
+        """Update status and battery charge"""
         self.communication_since_timer = True
 
         self.messages.messages_put([
@@ -370,6 +370,7 @@ class UInode(QtGui.QMainWindow):
         self.communication_since_timer = False
 
     def on_redraw(self):
+        """Redraw interface"""
         image = None
         with self.image_lock:
             if self.image is not None:

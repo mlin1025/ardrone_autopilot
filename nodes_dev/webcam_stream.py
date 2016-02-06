@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# UI node for visualizing ARdrone state
+# Webcamera streaming node for debug purpose
 #
 # This code is a part of `ardrone_autopilot` project
 # which is distributed under the MIT license.
@@ -51,7 +51,7 @@ class WebCamNode(object):
         self.capture = cv2.VideoCapture(camera_index)
         self.rate = rospy.Rate(rate)
         self.bridge = CvBridge()
-        self.pub = rospy.Publisher('webcam/image', Image, queue_size=1)
+        self.pub = rospy.Publisher('webcam/image', Image, queue_size=10)
 
     def frame(self):
         """Acquire and publish one more frame"""
