@@ -78,24 +78,28 @@ grid = [
     'drone.state',
     None,
     'drone.battery',
+    # None,
+    # ['od.pos.x',
+    #  'od.pos.y',
+    #  'od.pos.z'],
+    # ['od.ori.x',
+    #  'od.ori.y',
+    #  'od.ori.z',
+    #  'od.ori.w'],
+    # None,
+    # ['imu.ori.x',
+    #  'imu.ori.y',
+    #  'imu.ori.z'],
+    # ['imu.vel.x',
+    #  'imu.vel.y',
+    #  'imu.vel.z'],
+    # ['imu.acc.x',
+    #  'imu.acc.y',
+    #  'imu.acc.z'],
     None,
-    ['od.pos.x',
-     'od.pos.y',
-     'od.pos.z'],
-    ['od.ori.x',
-     'od.ori.y',
-     'od.ori.z',
-     'od.ori.w'],
-    None,
-    ['imu.ori.x',
-     'imu.ori.y',
-     'imu.ori.z'],
-    ['imu.vel.x',
-     'imu.vel.y',
-     'imu.vel.z'],
-    ['imu.acc.x',
-     'imu.acc.y',
-     'imu.acc.z']
+    ['tgt.x',
+     'tgt.y',
+     'tgt.z'],
 ]
 
 
@@ -289,7 +293,9 @@ class UInode(QtGui.QMainWindow):
         rospy.Subscriber('/ui/image', Image, self.on_video_update)
 
     def on_ui_request(self, message):
-        """We have spetial `ui/message` topic where any node can send
+        """Process request for message show
+
+        We have spetial `ui/message` topic where any node can send
         any message and that message will be displayed.
 
         By default messages are stacked in queue and displayed for a while.

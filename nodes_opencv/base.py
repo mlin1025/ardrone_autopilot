@@ -37,16 +37,21 @@ import cv
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 
 
 class BaseStreamHandler(object):
     def __init__(self, encoding='bgr8', show=False):
         self.pub = rospy.Publisher('out/image', Image, queue_size=1)
         rospy.Subscriber('in/image', Image, self.__on_image, queue_size=1)
+        rospy.Subscriber('in/info', CameraInfo, self.__on_info, queue_size=1)
         self.bridge = CvBridge()
         self.encoding = encoding
         self.show = show
+        self.info = None
+
+    def __on_info(self, data):
+        self.info = data
 
     def __on_image(self, data):
         """
