@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 #
-# Base class for testing computer vision systems
-#
 # This code is a part of `ardrone_autopilot` project
 # which is distributed under the MIT license.
 # See `LICENSE` file for details.
 #
-"""
+"""Base class for testing computer vision systems
+
 This is the base class which providing a fairly simple functionality:
 it receives an image stream and call a callback function per each frame.
 

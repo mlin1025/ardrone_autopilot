@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 #
-# OpenCV functions test: border detection
-#
 # This code is a part of `ardrone_autopilot` project
 # which is distributed under the MIT license.
 # See `LICENSE` file for details.

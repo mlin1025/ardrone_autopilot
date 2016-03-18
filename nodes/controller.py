@@ -4,37 +4,41 @@
 # which is distributed under the MIT license.
 # See `LICENSE` file for details.
 #
-"""OpenCV functions test: target recognition using ORB detector
-
-This node is based on `base.py`. See there a documentation.
+"""Target recognition and visualization
 
 
 Inputs
 ------
 
-* target/in/image -- main picture stream.
+* /in/image -- main picture stream.
+* /in/info -- camera info stream.
 
 
 Outputs
 -------
 
-* target/out/image -- result image.
+* /out/image -- result image.
 
 
 Parameters
 ----------
 
-* ~show = False [bool] -- show the result instead of publishing it.
 * ~encoding = "bgr8" [str] -- video encoding used by bridge.
-* ~path = "./img.jpg" [str] -- path to the target sample
+* ~path = "../data/target.jpg" [str] -- path to the target sample
+  (relative to the file location).
 
 """
 
 import cv2
+from cv_bridge import CvBridge, CvBridgeError
+
 import numpy as np
 
-from base import BaseStreamHandler
+import rospy
 
+from sensor_msgs.msg import Image, CameraInfo
+
+from os.path import dirname, join
 from operator import attrgetter
 from collections import deque
 
@@ -59,8 +63,21 @@ class Detect(object):
         self.desc = desc
 
 
-class Show(BaseStreamHandler):
-    def __init__(self, path, *args, **kwargs):
+class ControllerNode(object):
+    def __init__(self):
+        self.pub = rospy.Publisher('/out/image', Image, queue_size=5)
+
+        self.bridge = CvBridge()
+        self.encoding = rospy.get_param('~encoding', 'bgr8')
+
+        self.info = None
+
+        rospy.Subscriber('/in/info', CameraInfo, self.on_info, queue_size=1)
+        rospy.Subscriber('/in/image', Image, self.on_image, queue_size=1)
+
+        path = join(dirname(dirname(__file__)), 'data/target.jpg')
+        path = rospy.get_param('~path', path)
+
         self.detector = cv2.ORB()
         self.pattern = cv2.imread(path, 0)
         self.pattern_detect = self.detect(self.pattern)
@@ -85,9 +102,10 @@ class Show(BaseStreamHandler):
         h_, w_ = h // 2, w // 2
 
         self.target_points_3d = np.float32(
-            [[-w_+1, -h_+1, 0], [-w_+1, h_-1, 0], [w_-1, h_-1, 0], [w_-1, -h_+1, 0]])
-
-        super(Show, self).__init__(*args, **kwargs)
+            [[-w_+1, -h_+1, 0],
+             [-w_+1, h_-1, 0],
+             [w_-1, h_-1, 0],
+             [w_-1, -h_+1, 0]])
 
         self.x_ratio = 0.7
         self.y_ratio = 0.7
@@ -96,7 +114,20 @@ class Show(BaseStreamHandler):
 
         self.knn_parameter = 2
 
-    def on_image(self, img):
+    def on_info(self, data):
+        self.info = data
+
+    def on_image(self, data):
+        if self.info is None:
+            return
+
+        img = self.bridge.imgmsg_to_cv2(data, self.encoding)
+        img_out = self.process_image(img)
+
+        img_msg = self.bridge.cv2_to_imgmsg(img_out, self.encoding)
+        self.pub.publish(img_msg)
+
+    def process_image(self, img):
         if self.info is None:
             return
 
@@ -137,9 +168,6 @@ class Show(BaseStreamHandler):
             flags=cv2.ITERATIVE,
             reprojectionError=10
         )
-
-        cv2.putText(img, str(trans), (25, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.4, 0, 2)
-        cv2.putText(img, str(trans), (25, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         return self.draw_match(img, image_detect, matched_image_detect, bbox,
                                success=True)
@@ -223,5 +251,13 @@ class Show(BaseStreamHandler):
 
 
 if __name__ == "__main__":
-    from os.path import dirname, join
-    Show.launch_node(path=['~path', join(dirname(__file__), 'img.jpg')])
+    rospy.init_node('ui_node')
+
+    rospy.loginfo('Starting autopilot node')
+
+    node = ControllerNode()
+
+    try:
+        rospy.spin()
+    except KeyboardInterrupt:
+        pass

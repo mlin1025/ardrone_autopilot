@@ -26,7 +26,7 @@ Inputs
   side of screen. They will be displayed for `message_display_time` time
   (which is 5sec. by default) and then removed from screen.
 
-* /ui/image -- main picture stream.
+* /in/image -- main picture stream.
 
 
 Outputs
@@ -64,10 +64,8 @@ from PySide import QtCore, QtGui
 import rospy
 
 from std_msgs.msg import String, Empty
-from sensor_msgs.msg import Image, Imu
-from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Image
 from ardrone_autonomy.msg import Navdata
-from geometry_msgs.msg import Twist
 
 from utils.drone import DroneController
 
@@ -187,7 +185,7 @@ class UInode(QtGui.QMainWindow):
         self.redraw_timer.start(1000 / fps)
 
         rospy.Subscriber('/ui/message', String, self.on_ui_request)
-        rospy.Subscriber('/ui/image', Image, self.on_video_update)
+        rospy.Subscriber('/in/image', Image, self.on_video_update)
 
     def on_ui_request(self, message):
         """Process the message show request
