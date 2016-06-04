@@ -32,7 +32,6 @@ Parameters
 
 import rospy
 
-import cv
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -66,7 +65,8 @@ class BaseStreamHandler(object):
             else:
                 img_msg = self.bridge.cv2_to_imgmsg(img_out, self.encoding)
                 self.pub.publish(img_msg)
-        cv.WaitKey(1)
+
+        cv2.cv.WaitKey(1)
 
     def on_image(self, img):
         """User code lives here"""

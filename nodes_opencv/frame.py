@@ -57,13 +57,13 @@ class Show(BaseStreamHandler):
         self.camera_model.fromCameraInfo(self.info)
         # self.camera_model.rectifyImage(img, img)
 
-        self.tf.waitForTransform('mydrone/odom',
-                                 'mydrone/ardrone_base_frontcam',
+        self.tf.waitForTransform('ardrone/odom',
+                                 'ardrone/ardrone_base_frontcam',
                                  rospy.Time(0),
                                  rospy.Duration(3))
 
-        trans, rot = self.tf.lookupTransform('mydrone/odom',
-                                             'mydrone/ardrone_base_frontcam',
+        trans, rot = self.tf.lookupTransform('ardrone/odom',
+                                             'ardrone/ardrone_base_frontcam',
                                              rospy.Time(0))
 
         rot_matrix = np.array(quaternion_matrix(rot))

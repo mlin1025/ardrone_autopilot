@@ -96,10 +96,10 @@ class Show(BaseStreamHandler):
 
         self.knn_parameter = 2
 
-    def on_image(self, img):
-        if self.info is None:
-            return
+        print('!')
 
+    def on_image(self, img):
+        print('!')
         image_detect = self.detect(img)
 
         if len(image_detect.kp) < 15:
@@ -128,18 +128,6 @@ class Show(BaseStreamHandler):
 
         camera_matrix = np.float32(self.info.K).reshape(3, 3)
         camera_distortion = np.float32(self.info.D)
-
-        # TODO: use previously received data
-        rot, trans, inl = cv2.solvePnPRansac(
-            self.target_points_3d, np.float32(bbox),
-            camera_matrix, camera_distortion,
-            iterationsCount=10,
-            flags=cv2.ITERATIVE,
-            reprojectionError=10
-        )
-
-        cv2.putText(img, str(trans), (25, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.4, 0, 2)
-        cv2.putText(img, str(trans), (25, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         return self.draw_match(img, image_detect, matched_image_detect, bbox,
                                success=True)

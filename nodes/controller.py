@@ -36,24 +36,50 @@ import numpy as np
 
 import rospy
 
+from std_msgs.msg import Empty
 from sensor_msgs.msg import Image, CameraInfo
 
 from os.path import dirname, join
-from operator import attrgetter
+from operator import attrgetter, is_not
 from collections import deque
+from itertools import takewhile
+from functools import partial
+
+import tf
+from tf.transformations import euler_from_quaternion, euler_matrix
+
+import image_geometry
+
+from math import cos, sin
+
+from utils.drone import DroneController
+
+from datetime import datetime, timedelta
+
+# _x__ = datetime.now()
+
+# def t_in():
+#     global _x__
+#     _x__ = datetime.now()
+
+# def t_out():
+#     global _x__
+#     print datetime.now() - _x__,
 
 
 class MovingAverage(object):
     def __init__(self, coeffs=None):
         if coeffs is None:
-            coeffs = [1] * 5
+            coeffs = [1.0] * 5
 
         self.coeffs = coeffs
         self.items = deque(maxlen=len(coeffs))
 
     def __call__(self, new_val):
-        self.items.append(new_val)
-        return sum(c * v for c, v in zip(self.coeffs, self.items))
+        self.items.appendleft(new_val)
+        items = list(takewhile(partial(is_not, None), self.items))
+        if items:
+            return sum(c * v for c, v in zip(self.coeffs, items)) / len(items)
 
 
 class Detect(object):
@@ -65,6 +91,10 @@ class Detect(object):
 
 class ControllerNode(object):
     def __init__(self):
+        self.last_cmd_sent = datetime.now()
+
+        self.controller = DroneController()
+
         self.pub = rospy.Publisher('/out/image', Image, queue_size=5)
 
         self.bridge = CvBridge()
@@ -81,6 +111,8 @@ class ControllerNode(object):
         self.detector = cv2.ORB()
         self.pattern = cv2.imread(path, 0)
         self.pattern_detect = self.detect(self.pattern)
+
+        self.min_points = 15
 
         self.matcher = cv2.FlannBasedMatcher(
             dict(
@@ -110,30 +142,71 @@ class ControllerNode(object):
         self.x_ratio = 0.7
         self.y_ratio = 0.7
 
-        self.match_test_ratio = 0.7
+        self.match_test_ratio = 0.8
 
         self.knn_parameter = 2
 
+        self.filter = MovingAverage()
+
+        self.tf = tf.TransformListener()
+
+        self.camera_model = image_geometry.PinholeCameraModel()
+
+        self._ap_ctrl = rospy.Subscriber('/apctrl', Empty, self.on_toggle,
+                                         queue_size=1)
+
+        self.is_active = False
+
+    def send_vel(self, x=0, y=0):
+        if self.is_active:
+            if x == 0 and y == 0:
+                self.controller.hover()
+            else:
+                self.controller.send_vel(x, y)
+            print(x, y, str(datetime.now() - self.last_cmd_sent))
+            self.last_cmd_sent = datetime.now()
+
+    def on_toggle(self, e):
+        self.is_active = not self.is_active
+        print(self.is_active)
+
     def on_info(self, data):
         self.info = data
+
+    frame = 0
 
     def on_image(self, data):
         if self.info is None:
             return
 
+        if self.frame < 2:
+            self.frame += 1
+            return
+        else:
+            self.frame = 0
+
         img = self.bridge.imgmsg_to_cv2(data, self.encoding)
+
+        # cv2.imshow('Raw', img)
+
         img_out = self.process_image(img)
+
+        # cv2.imshow('Result', img_out)
 
         img_msg = self.bridge.cv2_to_imgmsg(img_out, self.encoding)
         self.pub.publish(img_msg)
 
+        # cv2.cv.WaitKey(1)
+
     def process_image(self, img):
         if self.info is None:
+            self.process_data(None)
             return
 
         image_detect = self.detect(img)
 
-        if len(image_detect.kp) < 15:
+        if len(image_detect.kp) < self.min_points:
+            self.process_data(None)
             return img
 
         matches = self.match(image_detect)
@@ -142,7 +215,8 @@ class ControllerNode(object):
         matched_pattern_detect = self.filter_query_kp(
             self.pattern_detect, matches)
 
-        if len(matches) < 15:
+        if len(matches) < self.min_points:
+            self.process_data(None)
             return self.draw_match(img, image_detect, matched_image_detect,
                                    success=False)
 
@@ -154,21 +228,22 @@ class ControllerNode(object):
         bbox = cv2.perspectiveTransform(self.target_points_2d, transform)
 
         if not self.check_match(bbox):
+            self.process_data(None)
             return self.draw_match(img, image_detect, matched_image_detect,
                                    bbox, success=False)
 
         camera_matrix = np.float32(self.info.K).reshape(3, 3)
         camera_distortion = np.float32(self.info.D)
 
-        # TODO: use previously received data
         rot, trans, inl = cv2.solvePnPRansac(
             self.target_points_3d, np.float32(bbox),
             camera_matrix, camera_distortion,
-            iterationsCount=10,
+            iterationsCount=5,
             flags=cv2.ITERATIVE,
-            reprojectionError=10
+            reprojectionError=20
         )
 
+        self.process_data(trans, img)
         return self.draw_match(img, image_detect, matched_image_detect, bbox,
                                success=True)
 
@@ -248,6 +323,69 @@ class ControllerNode(object):
     @staticmethod
     def distance(a, b):
         return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
+    def get_rot_matrix(self, rev=False):
+        frm, to = 'ardrone/odom', 'ardrone/ardrone_base_bottomcam'
+        if rev:
+            frm, to = to, frm
+
+        self.tf.waitForTransform(frm, to, rospy.Time(0), rospy.Duration(3))
+        trans, rot = self.tf.lookupTransform(frm, to, rospy.Time(0))
+
+        x, y, z = euler_from_quaternion(rot)
+        yaw = euler_from_quaternion(rot, axes='szxy')[0]
+
+        return yaw, np.array(euler_matrix(-x, -y, z))
+
+    def process_data(self, local_coordinates, img=None):
+        coordinates = self.filter(local_coordinates)
+        if coordinates is None:
+            if datetime.now() - self.last_cmd_sent > timedelta(seconds=0.3):
+                self.send_vel(0, 0)
+            return
+
+        coordinates.resize(1, 4)
+
+        yaw, rot_matrix = self.get_rot_matrix(rev=True)
+
+        point = coordinates.dot(rot_matrix)
+
+        if any(point[0]) and point[0][2] < 5000:
+            x, y, z = point[0][0], point[0][1], point[0][2]
+            x, y = x * cos(yaw) - y * sin(yaw), x * sin(yaw) + y * cos(yaw)
+
+            y -= 50
+
+            left = (min(max(x, -700), 700) / 10000)
+            forward = -(min(max(y, -700), 700) / 10000)
+
+            self.send_vel(forward, left)
+
+        if datetime.now() - self.last_cmd_sent > timedelta(seconds=0.3):
+            self.send_vel(0, 0)
+
+    #         self.project(img, point[0])
+
+    # def project(self, img, point):
+    #     if self.info is None:
+    #         return
+
+    #     self.camera_model.fromCameraInfo(self.info)
+    #     # self.camera_model.rectifyImage(img, img)
+
+    #     _, rot_matrix = self.get_rot_matrix()
+
+    #     point = point.dot(rot_matrix)
+
+    #     x, y = self.camera_model.project3dToPixel(point)
+    #     cv2.circle(img, (int(x), int(y)), 10, (0, 0, 255), 2)
+    #     cv2.circle(img, (int(x), int(y)), 15, (0, 0, 255), 2)
+    #     cv2.circle(img, (int(x), int(y)), 20, (0, 0, 255), 2)
+
+    #     point = np.array([0, 0, -1, 0])
+    #     point = point.dot(rot_matrix)
+    #     x, y = self.camera_model.project3dToPixel(point)
+    #     cv2.circle(img, (int(x), int(y)), 10, (0, 0, 255), 2)
 
 
 if __name__ == "__main__":

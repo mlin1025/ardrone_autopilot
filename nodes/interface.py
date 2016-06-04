@@ -45,7 +45,7 @@ Parameters
 
 * ~message_display_time = 5000 [uint] -- time after which
   anonymous messages will be hidden away from screan (in milliseconds).
-* ~coneection_check_period = 500 [uint] -- consider dorne is offline if we had
+* ~connection_check_period = 500 [uint] -- consider dorne is offline if we had
   no messages for more than this time (in milliseconds).
 * ~fps = 50 [uint] -- interface update rate.
 * ~swap_red_blue = False [bool] -- set this to `True` if you need to swap
@@ -160,10 +160,15 @@ class UInode(QtGui.QMainWindow):
     def __init__(self):
         super(UInode, self).__init__()
 
+        self._ap_topic = rospy.Publisher('/apctrl', Empty,
+                                         queue_size=5)
+
         self.swap_red_blue = rospy.get_param('~swap_red_blue', False)
 
         self.controller = DroneController(
-            offline_timeout=rospy.get_param('~coneection_check_period', 500))
+            offline_timeout=rospy.get_param('~connection_check_period', 500))
+
+        self.keymap = self.gen_keymap()
 
         self.messages = Messages(
             rospy.get_param('~message_display_time', 5000), *grid)
@@ -237,40 +242,31 @@ class UInode(QtGui.QMainWindow):
         self.resize(image.width(), image.height())
         self.image_box.setPixmap(image)
 
+    def gen_keymap(self):
+        return {
+            QtCore.Qt.Key.Key_R: lambda ax, e: self.controller.reset(),
+            QtCore.Qt.Key.Key_T: lambda ax, e: self.controller.takeoff(),
+            QtCore.Qt.Key.Key_L: lambda ax, e: self.controller.land(),
+            QtCore.Qt.Key.Key_H: lambda ax, e: self.controller.hover(),
+            QtCore.Qt.Key.Key_A: lambda ax, e: self.controller.send_vel(y=ax),
+            QtCore.Qt.Key.Key_D: lambda ax, e: self.controller.send_vel(y=-ax),
+            QtCore.Qt.Key.Key_W: lambda ax, e: self.controller.send_vel(x=ax),
+            QtCore.Qt.Key.Key_S: lambda ax, e: self.controller.send_vel(x=-ax),
+            QtCore.Qt.Key.Key_Q: lambda ax, e: self.controller.send_vel(yaw=ax),
+            QtCore.Qt.Key.Key_E: lambda ax, e: self.controller.send_vel(yaw=-ax),
+            QtCore.Qt.Key.Key_BracketRight: lambda ax, e: self.controller.send_vel(z=ax),
+            QtCore.Qt.Key.Key_BracketLeft: lambda ax, e: self.controller.send_vel(z=-ax),
+            QtCore.Qt.Key.Key_Y: lambda ax, e: self._ap_topic.publish(Empty()) if ax != 0 else None,
+        }
+
     def keyPressEvent(self, event):
         key = event.key()
 
         if event.isAutoRepeat() or self.controller is None:
             return
 
-        if key == QtCore.Qt.Key.Key_R:
-            self.controller.reset()
-        elif key == QtCore.Qt.Key.Key_T:
-            self.controller.takeoff()
-        elif key == QtCore.Qt.Key.Key_L:
-            self.controller.land()
-        elif key == QtCore.Qt.Key.Key_H:
-            self.controller.hover()
-        else:
-            if key == QtCore.Qt.Key.Key_A:
-                self.controller.send_vel(y=1)
-            elif key == QtCore.Qt.Key.Key_D:
-                self.controller.send_vel(y=-1)
-
-            elif key == QtCore.Qt.Key.Key_W:
-                self.controller.send_vel(x=1)
-            elif key == QtCore.Qt.Key.Key_S:
-                self.controller.send_vel(x=-1)
-
-            elif key == QtCore.Qt.Key.Key_Q:
-                self.controller.send_vel(yaw=1)
-            elif key == QtCore.Qt.Key.Key_E:
-                self.controller.send_vel(yaw=-1)
-
-            elif key == QtCore.Qt.Key.Key_BracketRight:
-                self.controller.send_vel(z=1)
-            elif key == QtCore.Qt.Key.Key_BracketLeft:
-                self.controller.send_vel(z=-1)
+        if key in self.keymap:
+            self.keymap[key](1, event)
 
     def keyReleaseEvent(self, event):
         key = event.key()
@@ -278,25 +274,8 @@ class UInode(QtGui.QMainWindow):
         if event.isAutoRepeat() or self.controller is None:
             return
 
-        if key == QtCore.Qt.Key.Key_A:
-            self.controller.send_vel(y=0)
-        elif key == QtCore.Qt.Key.Key_D:
-            self.controller.send_vel(y=0)
-
-        elif key == QtCore.Qt.Key.Key_W:
-            self.controller.send_vel(x=0)
-        elif key == QtCore.Qt.Key.Key_S:
-            self.controller.send_vel(x=0)
-
-        elif key == QtCore.Qt.Key.Key_Q:
-            self.controller.send_vel(yaw=0)
-        elif key == QtCore.Qt.Key.Key_E:
-            self.controller.send_vel(yaw=0)
-
-        elif key == QtCore.Qt.Key.Key_BracketRight:
-            self.controller.send_vel(z=0)
-        elif key == QtCore.Qt.Key.Key_BracketLeft:
-            self.controller.send_vel(z=0)
+        if key in self.keymap:
+            self.keymap[key](0, event)
 
 
 if __name__ == '__main__':
