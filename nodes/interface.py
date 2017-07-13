@@ -160,8 +160,8 @@ class UInode(QtGui.QMainWindow):
     def __init__(self):
         super(UInode, self).__init__()
 
-        self._ap_topic = rospy.Publisher('/apctrl', Empty,
-                                         queue_size=5)
+        self._ap_topic = rospy.Publisher('/apctrl', Empty, queue_size=5)
+        self.webcam_shutdown_pub = rospy.Publisher('/webcam/shutdown', Empty, queue_size=5)
 
         self.swap_red_blue = rospy.get_param('~swap_red_blue', False)
 
@@ -190,7 +190,7 @@ class UInode(QtGui.QMainWindow):
         self.redraw_timer.start(1000 / fps)
 
         rospy.Subscriber('/ui/message', String, self.on_ui_request)
-        rospy.Subscriber('/in/image', Image, self.on_video_update)
+        rospy.Subscriber('/out/image', Image, self.on_video_update)
 
     def on_ui_request(self, message):
         """Process the message show request
@@ -226,7 +226,7 @@ class UInode(QtGui.QMainWindow):
         """Redraw interface"""
         image = None
         with self.image_lock:
-            if self.controller.is_online and self.image is not None:
+            if self.image is not None:
                 image = QtGui.QPixmap.fromImage(self.image)
             else:
                 image = QtGui.QPixmap(640, 360)
@@ -291,4 +291,5 @@ if __name__ == '__main__':
     ui.show()
 
     status = app.exec_()
+    ui.webcam_shutdown_pub.publish(Empty())
     sys.exit(status)

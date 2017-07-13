@@ -67,6 +67,7 @@ from datetime import datetime, timedelta
 #     print datetime.now() - _x__,
 
 
+
 class MovingAverage(object):
     def __init__(self, coeffs=None):
         if coeffs is None:
@@ -91,24 +92,22 @@ class Detect(object):
 
 class ControllerNode(object):
     def __init__(self):
+        self._b = False
         self.last_cmd_sent = datetime.now()
 
         self.controller = DroneController()
 
-        self.pub = rospy.Publisher('/out/image', Image, queue_size=5)
-
         self.bridge = CvBridge()
         self.encoding = rospy.get_param('~encoding', 'bgr8')
 
-        self.info = None
+        #self.info = None
 
-        rospy.Subscriber('/in/info', CameraInfo, self.on_info, queue_size=1)
-        rospy.Subscriber('/in/image', Image, self.on_image, queue_size=1)
+        #rospy.Subscriber('/ardrone/localTargetCoordsWhichWeShouldProccessAndFollow', Vector3, self.process_data, queue_size=5)
 
         path = join(dirname(dirname(__file__)), 'data/target.jpg')
         path = rospy.get_param('~path', path)
 
-        self.detector = cv2.ORB()
+        self.detector = cv2.ORB_create()
         self.pattern = cv2.imread(path, 0)
         self.pattern_detect = self.detect(self.pattern)
 
@@ -156,6 +155,7 @@ class ControllerNode(object):
                                          queue_size=1)
 
         self.is_active = False
+        self.is_webcam = rospy.get_param('~is_webcam', False)
 
     def send_vel(self, x=0, y=0):
         if self.is_active:
@@ -174,29 +174,6 @@ class ControllerNode(object):
         self.info = data
 
     frame = 0
-
-    def on_image(self, data):
-        if self.info is None:
-            return
-
-        if self.frame < 2:
-            self.frame += 1
-            return
-        else:
-            self.frame = 0
-
-        img = self.bridge.imgmsg_to_cv2(data, self.encoding)
-
-        # cv2.imshow('Raw', img)
-
-        img_out = self.process_image(img)
-
-        # cv2.imshow('Result', img_out)
-
-        img_msg = self.bridge.cv2_to_imgmsg(img_out, self.encoding)
-        self.pub.publish(img_msg)
-
-        # cv2.cv.WaitKey(1)
 
     def process_image(self, img):
         if self.info is None:
@@ -235,12 +212,12 @@ class ControllerNode(object):
         camera_matrix = np.float32(self.info.K).reshape(3, 3)
         camera_distortion = np.float32(self.info.D)
 
-        rot, trans, inl = cv2.solvePnPRansac(
+        rot, trans, inl = cv2.solvePnP(
             self.target_points_3d, np.float32(bbox),
             camera_matrix, camera_distortion,
-            iterationsCount=5,
-            flags=cv2.ITERATIVE,
-            reprojectionError=20
+           # iterationsCount=5,
+            flags=0#,
+           # reprojectionError=20
         )
 
         self.process_data(trans, img)
@@ -273,10 +250,11 @@ class ControllerNode(object):
             color = (0, 255, 0)
         else:
             color = (0, 0, 255)
-
-        img = cv2.drawKeypoints(img, image_detect.kp,
+        from copy import copy
+        img2 = copy(img)
+        img = cv2.drawKeypoints(img, image_detect.kp, img2,
                                 color=(0, 20, 20), flags=0)
-        img = cv2.drawKeypoints(img, good_image_detect.kp,
+        img = cv2.drawKeypoints(img, good_image_detect.kp, img2,
                                 color=color, flags=0)
 
         if bbox is not None:
@@ -337,7 +315,7 @@ class ControllerNode(object):
 
         return yaw, np.array(euler_matrix(-x, -y, z))
 
-    def process_data(self, local_coordinates, img=None):
+    def process_data(self, local_coordinates):
         coordinates = self.filter(local_coordinates)
         if coordinates is None:
             if datetime.now() - self.last_cmd_sent > timedelta(seconds=0.3):

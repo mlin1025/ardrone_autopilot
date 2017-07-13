@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   cv_bridge
+  image_transport
 )
 
 ## System dependencies are found with CMake's conventions
@@ -120,6 +121,9 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
+
+add_executable(imgproc src/imgproc.cpp)
+target_link_libraries(imgproc ${catkin_LIBRARIES})
 
 ## Declare a C++ library
 # add_library(ardrone_autopilot
