@@ -42,6 +42,8 @@ void processImage(cv::Mat& img) {
     cv::GaussianBlur( gray, gray, cv::Size(9, 9), 2, 2 );
     std::vector<cv::Vec3f> circles;
     HoughCircles(gray, circles, CV_HOUGH_GRADIENT, 2, 20, 100, 90);
+    if (circles.size() != 3) 
+        return;
     for(size_t i = 0; i < circles.size(); i++ ) {
         cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
          int radius = cvRound(circles[i][2]);
@@ -54,11 +56,5 @@ void processImage(cv::Mat& img) {
     auto vc = getTargetVector(gray, circles);
     cv::arrowedLine(img, vc.first, vc.second, cv::Scalar(255, 0, 0), 4);
     std::cout << "found  " << circles.size() << " circles";
-    std::cout << "found  " << circles.size() << " circles";
-    while (1) {
-        cv::imshow("gray", gray);
-        cv::imshow("circles", img );
-        cv::waitKey(1);
-    }
     return;
 }
