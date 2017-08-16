@@ -1,2 +1,7 @@
-# ardrone-autopilot
-Implement autonomous navigation system for ARdrone 2 capable of tracking clearly marked objects
+# ardrone_autopilot
+
+Georgiy Kozhevnikov's version of ardrone_autopilot.
+Differences:
+	*Dynamic bounding box
+	*PD based controller
+

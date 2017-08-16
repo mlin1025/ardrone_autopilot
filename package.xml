@@ -7,7 +7,7 @@
   </description>
 
 
-  <maintainer email="dev.zelta@gmail.com">Goncharov Vladimir</maintainer>
+  <maintainer email="baraltiva@gmail.com">Goncharov Vladimir, Reneva Julia and Kozhevnikov Georgiy</maintainer>
 
 
   <license>MIT</license>
@@ -16,8 +16,8 @@
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <url type="repository">https://github.com/AmatanHead/ardrone-autopilot</url>
-  <url type="bugtracker">https://github.com/AmatanHead/ardrone-autopilot/issues</url>
+  <url type="repository">https://github.com/Barahlush/ardrone_autopilot</url>
+  <url type="bugtracker">https://github.com/Barahlush/ardrone_autopilot/issues</url>
 
 
   <!-- Author tags are optional, mutiple are allowed, one per tag -->

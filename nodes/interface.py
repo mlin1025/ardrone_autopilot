@@ -169,6 +169,8 @@ class UInode(QtGui.QMainWindow):
             offline_timeout=rospy.get_param('~connection_check_period', 500))
 
         self.keymap = self.gen_keymap()
+	# Without release action
+	self.keymap2 = self.gen_keymap2()
 
         self.messages = Messages(
             rospy.get_param('~message_display_time', 5000), *grid)
@@ -242,11 +244,30 @@ class UInode(QtGui.QMainWindow):
         self.resize(image.width(), image.height())
         self.image_box.setPixmap(image)
 
+    def gen_keymap2(self):
+        return {
+            QtCore.Qt.Key.Key_M: lambda ax, e: self.controller.enable_cv(),
+            QtCore.Qt.Key.Key_N: lambda ax, e: self.controller.enable_controller(),
+        }
+
     def gen_keymap(self):
         return {
             QtCore.Qt.Key.Key_R: lambda ax, e: self.controller.reset(),
             QtCore.Qt.Key.Key_T: lambda ax, e: self.controller.takeoff(),
             QtCore.Qt.Key.Key_L: lambda ax, e: self.controller.land(),
+            QtCore.Qt.Key.Key_C: lambda ax, e: self.controller.change_camera(),
+            QtCore.Qt.Key.Key_M: lambda ax, e: self.controller.enable_cv(),
+            QtCore.Qt.Key.Key_N: lambda ax, e: self.controller.enable_controller(),
+
+            QtCore.Qt.Key.Key_F1: lambda ax, e: self.controller.increaseP(),
+            QtCore.Qt.Key.Key_F2: lambda ax, e: self.controller.decreaseP(),
+
+            QtCore.Qt.Key.Key_F3: lambda ax, e: self.controller.increaseI(),
+            QtCore.Qt.Key.Key_F4: lambda ax, e: self.controller.decreaseI(),
+
+            QtCore.Qt.Key.Key_F5: lambda ax, e: self.controller.increaseD(),
+            QtCore.Qt.Key.Key_F6: lambda ax, e: self.controller.decreaseD(),
+
             QtCore.Qt.Key.Key_H: lambda ax, e: self.controller.hover(),
             QtCore.Qt.Key.Key_A: lambda ax, e: self.controller.send_vel(y=ax),
             QtCore.Qt.Key.Key_D: lambda ax, e: self.controller.send_vel(y=-ax),
@@ -267,6 +288,7 @@ class UInode(QtGui.QMainWindow):
 
         if key in self.keymap:
             self.keymap[key](1, event)
+	
 
     def keyReleaseEvent(self, event):
         key = event.key()
@@ -274,7 +296,7 @@ class UInode(QtGui.QMainWindow):
         if event.isAutoRepeat() or self.controller is None:
             return
 
-        if key in self.keymap:
+        if key in self.keymap and key not in self.keymap2:
             self.keymap[key](0, event)
 
 

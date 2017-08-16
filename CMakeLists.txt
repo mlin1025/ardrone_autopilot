@@ -122,8 +122,13 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(imgproc src/imgproc.cpp)
-target_link_libraries(imgproc ${catkin_LIBRARIES})
+add_executable(imgHandler src/imgHandler.cpp src/compVision.cpp)
+target_link_libraries(imgHandler ${catkin_LIBRARIES})
+add_executable(controller src/controller.cpp)
+target_link_libraries(controller ${catkin_LIBRARIES})
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+##add_executable(node nodes/node.js)
+#target_link_libraries(node ${catkin_LIBRARIES})
 
 ## Declare a C++ library
 # add_library(ardrone_autopilot

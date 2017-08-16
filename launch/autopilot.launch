@@ -3,8 +3,8 @@
         <remap from="/in/image/" to="/ui/image/"/>
         <param name="swap_red_blue" value="True" />
     </node>
-    <node name="controller" pkg="ardrone_autopilot" type="controller.py" output="screen">
+    <node name="controller" pkg="ardrone_autopilot" type="controller" output="screen">
     </node>
-    <node name="imgproc" pkg="ardrone_autopilot" type="imgproc" output="screen">
+    <node name="imgHandler" pkg="ardrone_autopilot" type="imgHandler" output="screen">
     </node>
 </launch>
