@@ -36,7 +36,7 @@ import numpy as np
 
 import rospy
 
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, String
 from sensor_msgs.msg import Image, CameraInfo
 
 from os.path import dirname, join
@@ -99,6 +99,9 @@ class ControllerNode(object):
         self.filter = MovingAverage()
         self.tf = tf.TransformListener()
         self._ap_ctrl = rospy.Subscriber('/apctrl', Empty, self.on_toggle, queue_size=1)
+        ####
+        self.targetGetter = rospy.Subscriber('target', String, self.on_target, queue_size=5)
+        ####
         self.is_active = False
         self.is_webcam = rospy.get_param('~is_webcam', False)
 
@@ -114,6 +117,10 @@ class ControllerNode(object):
     def on_toggle(self, e):
         self.is_active = not self.is_active
         print(self.is_active)
+
+
+###    def on_target(self, String str):
+        
 
     def get_rot_matrix(self, rev=False):
         frm, to = 'ardrone/odom', 'ardrone/ardrone_base_bottomcam'

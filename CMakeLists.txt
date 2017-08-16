@@ -122,8 +122,12 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(imgproc src/imgproc.cpp)
+add_executable(imgproc src/imgproc.cpp src/features.cpp)
 target_link_libraries(imgproc ${catkin_LIBRARIES})
+add_executable(controller src/controller.cpp)
+target_link_libraries(controller ${catkin_LIBRARIES})
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+
 
 ## Declare a C++ library
 # add_library(ardrone_autopilot

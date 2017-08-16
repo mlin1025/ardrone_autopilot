@@ -24,20 +24,40 @@ struct ImageProcessor imgProc;
 
 static CirclesMessage cMessage;
 
+// Convert target information to string
+// Format:
+// boxLeft,boxRight,boxTop,boxBottom circleX,circleY,circleWidth,circleHeight,circleInTheBox.
+/*
+void cmsg2string (CirclesMessage& cmsg, std_msgs::String& str) {
+    str.data += cmsg.box.left + ','
+                + cmsg.box.right + ','
+                + cmsg.box.top + ','
+                + cmsg.box.bottom + ' ';
+    for (size_t i = 0; i != cmsg.inTheBox.size(); ++i) {
+         float x = cmsg.circles[i].center.x;
+         float y = cmsg.circles[i].center.y;
+         float w = cmsg.circles[i].size.width;
+         float h = cmsg.circles[i].size.height;
+         bool b = cmsg.inTheBox[i];
+         str.data += std::to_string(x) + ',';
+         str.data += std::to_string(y) + ',';
+         str.data += std::to_string(w) + ',';
+         str.data += std::to_string(h) + ',';
+         str.data += std::to_string(b) + ' ';
+    }
+}
+*/
 
-// Extract box information from features.cpp by CircleMessage
 void cmsg2BoxmultiArray(CirclesMessage& cmsg,
                      std_msgs::Float32MultiArray& boxToSend) {
-        std::vector<float> vec1 = {
-                                    cmsg.box.left, 
-                                    cmsg.box.right, 
-                                    cmsg.box.top, 
-                                    cmsg.box.bottom
-        };
-       boxToSend.data.insert(boxToSend.data.end(), vec1.begin(), vec1.end());
+        std::vector<float> vec1 = {cmsg.box.left, cmsg.box.right, cmsg.box.top, cmsg.box.bottom};
+        /*msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        boxToSend.layout.dim[0].size = vec1.size();
+        boxToSend.layout.dim[0].stride = 1;
+        boxToSend.layout.dim[0].label = "box";*/
+        boxToSend.data.insert(boxToSend.data.end(), vec1.begin(), vec1.end());
 }
 
-// Convert CircleMessage to float multiarray message to send it
 void cmsg2multiArray(CirclesMessage& cmsg,
                         std_msgs::Float32MultiArray& msg) {
         std::vector<float> vec1;
@@ -50,6 +70,10 @@ void cmsg2multiArray(CirclesMessage& cmsg,
                     cmsg.circles[i].size.height,
                     cmsg.inTheBox[i]
             };
+            /*msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+            msg.layout.dim[i].size = vec1.size();
+            msg.layout.dim[i].stride = 1;
+            msg.layout.dim[i].label = "circle" + std::to_string(i); */
             msg.data.insert(msg.data.end(), vec1.begin(), vec1.end());
         }
 } 
@@ -80,11 +104,9 @@ void onImage(const sensor_msgs::Image::ConstPtr& image)
         // Process image and get target information
         processImage(cv_ptr->image, cMessage);
         
-        // Convert circle message from features.cpp and send it
+        // Convert message and send it
         std_msgs::Float32MultiArray msg;
         std_msgs::Float32MultiArray sendBox;
-        // Information about the box sends only 1 time
-        // Convert message
         if (!imgProc.boxSended) {
             cmsg2BoxmultiArray(cMessage,  sendBox);
             imgProc.boxSendler.publish(sendBox);
@@ -92,16 +114,15 @@ void onImage(const sensor_msgs::Image::ConstPtr& image)
         } else {
             cmsg2multiArray(cMessage, msg);
         }
-        // Publish message
         imgProc.circlePublisher.publish(msg);
     }
 
-    // Publish image
+    // Send image
     imgProc.imgPublisher.publish(cv_ptr->toImageMsg());
 
 }
 
-// Hz
+
 void onCameraInfo(const sensor_msgs::CameraInfoConstPtr& cam_info)
 {
     imgProc.cameraDistortion = cam_info->D;
@@ -119,7 +140,6 @@ void onEnable(const std_msgs::Empty& toggle_msg) {
     }
 }
 
-
 int main(int argc, char **argv)
 {
 
@@ -132,13 +152,13 @@ int main(int argc, char **argv)
     
     imgProc.imgPublisher = 
             node.advertise<sensor_msgs::Image>("/out/image", 5);
-    
+
     imgProc.boxSendler = 
             node.advertise<std_msgs::Float32MultiArray>("box", 1);
     imgProc.circlePublisher = 
             node.advertise<std_msgs::Float32MultiArray>("target", 5);
     
-    // Getting the image from camera
+    
     ros::Subscriber sub1 = 
             node.subscribe("/in/image", 5, onImage);
     ros::Subscriber sub2 = 

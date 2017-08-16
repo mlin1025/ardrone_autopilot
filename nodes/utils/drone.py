@@ -29,6 +29,7 @@ controller.takeoff()
 
 """
 
+from subprocess import call
 from multiprocessing import RLock
 from copy import copy
 from datetime import datetime, timedelta
@@ -41,6 +42,7 @@ from geometry_msgs.msg import Twist
 
 from .events import Event
 
+changing = True
 
 class DroneStatus(object):
     statuses = {
@@ -162,7 +164,10 @@ class DroneController(object):
                  reset_topic_name='/ardrone/reset',
                  cmd_topic_name='/cmd_vel',
                  navdata_topic_name='/ardrone/navdata',
-                 queue_size=5,
+                 change_camera_topic_name = '/ardrone/togglecam',
+                 enable_controller_topic_name = 'controller/enable',
+                 enable_cv_topic_name = 'cv/enable',
+                 queue_size=6,
                  land_on_shutdown=True,
                  offline_timeout=500):
         """A simple interface for the ArDrone autonomy driver
@@ -271,6 +276,14 @@ class DroneController(object):
         self._cmd_topic = rospy.Publisher(cmd_topic_name, Twist,
                                           queue_size=queue_size)
 
+        self._change_camera_topic = rospy.Publisher(change_camera_topic_name, Empty,
+                                                   queue_size=queue_size)
+	self._enable_controller_topic = rospy.Publisher(enable_controller_topic_name, Empty,
+                                                   queue_size=queue_size)
+	self._enable_cv_topic = rospy.Publisher(enable_cv_topic_name, Empty,
+                                                   queue_size=1)
+
+
         if land_on_shutdown:
             # Land the drone if this node is disabled
             rospy.on_shutdown(self.land)
@@ -298,6 +311,10 @@ class DroneController(object):
         self.before_cmd_hover = Event()
         self.before_cmd_vel = Event()
         self.before_cmd = Event()
+        self.before_cmd_change_camera = Event()
+
+        self.before_cmd_enable_cv = Event()
+        self.before_cmd_enable_controller = Event()
 
     @property
     def status(self):
@@ -373,6 +390,29 @@ class DroneController(object):
         """Send the land signal"""
         self.before_cmd_land.emit(self)
         self._land_topic.publish(Empty())
+
+    def enable_controller(self):
+	"""Enables autopilot controller"""
+	self.before_cmd_enable_controller.emit(self)
+	self._enable_controller_topic.publish(Empty())
+
+    def enable_cv(self):
+	"""Enables target tracking"""
+	self.before_cmd_enable_cv.emit(self)
+	self._enable_cv_topic.publish(Empty())
+
+    def change_camera(self):
+        global changing
+        """Send the change camera signal"""
+        
+        if (changing == True):
+                call("rosservice call /ardrone/togglecam", shell=True)
+                changing = False
+                print("CHANGE CAMERA")
+        else:
+                changing = True
+        self.before_cmd_change_camera.emit(self)
+        self._change_camera_topic.publish(Empty())
 
     def reset(self, force=False):
         """Send the reset signal

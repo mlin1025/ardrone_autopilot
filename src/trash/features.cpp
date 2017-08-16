@@ -11,7 +11,7 @@ using namespace cv;
 
 const int circleRadius = 50;
 
-// Image processing
+
 void processImage(cv::Mat& src, CirclesMessage& msg) {
 
   int thresh = 100;
@@ -23,7 +23,6 @@ void processImage(cv::Mat& src, CirclesMessage& msg) {
   std::vector<std::vector<Point> > contours;
   std::vector<Vec4i> hierarchy;
 
-  //Convert the captured frame from BGR to HSV
   Mat imgHSV;
   cvtColor(src, imgHSV, COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
   Mat red_hue_range;
@@ -31,14 +30,14 @@ void processImage(cv::Mat& src, CirclesMessage& msg) {
   Mat blue_hue_range;
   
   // Refuse only pixels in target's colors range
-  //cv::inRange(imgHSV, cv::Scalar(128, 81, 32), cv::Scalar(175, 255, 255), red_hue_range);
-  //cv::inRange(imgHSV, cv::Scalar(102, 110, 49), cv::Scalar(143, 255, 255), blue_hue_range);
-  cv::inRange(imgHSV, cv::Scalar(30, 50, 40), cv::Scalar(79, 200, 255), green_hue_range);
+  cv::inRange(imgHSV, cv::Scalar(128, 81, 32), cv::Scalar(175, 255, 255), red_hue_range);
+  cv::inRange(imgHSV, cv::Scalar(102, 86, 49), cv::Scalar(143, 255, 255), blue_hue_range);
+  cv::inRange(imgHSV, cv::Scalar(51, 89, 60), cv::Scalar(103, 255, 255), green_hue_range);
   
   // Summ all ranges
-  cv::Mat summ = green_hue_range;
-  //cv::addWeighted(blue_hue_range, 1.0, green_hue_range, 1.0, 0.0, summ);
-  //cv::addWeighted(blue_hue_range, 1.0, summ, 1.0, 0.0, summ);
+  cv::Mat summ;
+  cv::addWeighted(red_hue_range, 1.0, green_hue_range, 1.0, 0.0, summ);
+  cv::addWeighted(blue_hue_range, 1.0, summ, 1.0, 0.0, summ);
   
   // smooth it, otherwise a lot of false circles may be detected
   //cv::GaussianBlur( summ, summ, cv::Size(9, 9), 2, 2 );
