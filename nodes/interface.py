@@ -252,7 +252,7 @@ class UInode(QtGui.QMainWindow):
 
     def gen_keymap(self):
         return {
-            QtCore.Qt.Key.Key_R: lambda ax, e: self.controller.reset(),
+            QtCore.Qt.Key.Key_Space: lambda ax, e: self.controller.reset(),
             QtCore.Qt.Key.Key_T: lambda ax, e: self.controller.takeoff(),
             QtCore.Qt.Key.Key_L: lambda ax, e: self.controller.land(),
             QtCore.Qt.Key.Key_C: lambda ax, e: self.controller.change_camera(),
