@@ -7,4 +7,6 @@
     </node>
     <node name="imgHandler" pkg="ardrone_autopilot" type="imgHandler" output="screen">
     </node>
+    <node name="relaySim" pkg="ardrone_autopilot" type="relaySim" output="screen">
+    </node>
 </launch>
